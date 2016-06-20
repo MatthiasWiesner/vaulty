@@ -1,0 +1,6 @@
+credentials.sh
+/*.db
+/vaulty/*.db
+build/
+dist/
+vaulty.egg-info/
