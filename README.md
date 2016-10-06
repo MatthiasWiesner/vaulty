@@ -16,7 +16,7 @@ Download videos from Vimeo and upload them to AWS Glacier vault.
 
 ## Usage
 
-This tool provides a cli script wirh the commands:
+This tool provides a cli script with the commands:
 ```
 admin@ip-172-31-31-242:~/vaulty$ vaulty --help
 Usage: vaulty [OPTIONS] COMMAND [ARGS]...
@@ -34,9 +34,12 @@ Commands:
   upload               download videos from vimeo and upload them to...
   ```
 
-To use the tool you need to create a credentials file that provides the AWS and Vimeo credentials as bash environment variables.
+To use the tool you need to create a credentials file that provides the AWS and 
+Vimeo credentials as bash environment variables.
 
-Create a file with the content: https://dev.xikolo.de/gitlab/adm/credentials/blob/master/README.md#vaulty-credentials
+Create a file with the content: 
+https://dev.xikolo.de/gitlab/adm/credentials/blob/master/README.md#vaulty-credentials 
+and source it
 
 ### Upload videos:
 ```
@@ -55,13 +58,16 @@ Options:
   --help                          Show this message and exit.
 ```
 
-Before you upload the videos you should create the AWS Glacier vault (the tool creates the vault if not exists, but I never tested it ;)
+Before you upload the videos you should create the AWS Glacier vault (the tool 
+creates the vault if not exists, but I never tested it ;)
 
-When you down/upload the videos to python shelve files will be created. The shelve files stores all down/upload informations (only readable with python shelve).
+When you down/upload the videos two python shelve files will be created. 
+The shelve files stores all down-, upload informations (only readable with the 
+python shelve module).
 
 Example upload: `vaulty upload -p openhpi -v videos_openhpi_123`
 
-Be patient, this procedure takes some hours.
+Be patient, this procedure can takes some hours.
 
 
 ### Delete archives
@@ -88,6 +94,13 @@ Options:
   --help                 Show this message and exit.
 ```
 
-Deleting Glacier vault archives happens in several steps. You have to fetch the vault's inventory list first to get the archives IDs. But getting the inventory list can take a day! So, the tool inits the inventory retrieval, gets informed via AWS SQS/SNS, waits for the Glacier response and deletes the archives on arrival.
+Deleting Glacier vault archives happens in several steps. You have to fetch the 
+vault's inventory list first to get the archives IDs. But getting the inventory 
+list can take a day! So, the tool inits the inventory retrieval, gets informed 
+via AWS SQS/SNS, waits for the Glacier response and deletes the archives on 
+arrival.
 
 Example delete archives: `vaulty delete_archives -v videos_openhpi_123`
+
+*Currently, this command deletes only the archives. You have to delete the vault 
+manually in the AWS console.*
