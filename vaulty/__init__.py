@@ -58,7 +58,7 @@ def upload(ctx, platform, vault_name):
 
     logdb_vault = shelve.open(
         os.path.join(ctx.obj.base_path, 'vault_{0}_{1}.db'.format(
-            platform, timestr)))
+            vault_name, timestr)))
 
     logdb_vimeo = shelve.open(
         os.path.join(ctx.obj.base_path, 'vimeo_{0}_{1}.db'.format(
@@ -133,13 +133,20 @@ def delete_archives(ctx, vault_name):
     :return: None
 
     - create SNS topic
+
     - set vault notification
+
     - create SQS queue
+
     - add permission to write to queue
+
     - subscribe to SNS
+
     - init_inventory_retrieval
+
     - wait for SNS/SQS nofification
-    - delete Glacier archives
+
+    - delete Glacier vault archives
     """
     sns = vault.SNS(ctx.obj.boto_client)
     sqs = vault.SQS(ctx.obj.boto_client)
