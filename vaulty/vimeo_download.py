@@ -23,7 +23,9 @@ class VimeoDownloader(object):
     def iterate_pages(self, per_page=25):
         next_page = '/me/videos?per_page={0}&page=1&fields=files,uri'.format(
             per_page)
+
         next_page = self.download_page(next_page)
+
         while next_page:
             next_page = self.download_page(next_page)
 
@@ -31,7 +33,7 @@ class VimeoDownloader(object):
         current_result = self.client.get(page).json()
 
         page_id = 'page-{0}'.format(current_result['page'])
-        self.logdb[page_id] = {}
+        page_log_info = dict()
 
         for files_info in current_result['data']:
             if not len(files_info['files']):
@@ -39,15 +41,19 @@ class VimeoDownloader(object):
 
             vimeo_id = str(files_info['uri'].split('/')[-1])
             file_info = max(files_info['files'], key=lambda x: x['size'])
-            self.download_file(file_info['link'], vimeo_id)
-            self.logdb[page_id][vimeo_id] = file_info
 
+            self.download_file(file_info['link'], vimeo_id)
+            page_log_info[vimeo_id] = file_info
+
+        self.logdb[page_id] = page_log_info
         return current_result['paging']['next']
 
     def download_file(self, source_url, vimeo_id):
         response = requests.get(source_url, stream=True)
+
         with open(self.tempfile, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
+
         self.file_process_handler(vimeo_id, self.tempfile)
