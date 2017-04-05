@@ -33,7 +33,7 @@ def cli(ctx, base_path):
 
 
 @cli.command()
-@click.option('-p', '--platform', type=click.Choice(['openhpi', 'opensap', 'moochouse']), help='Platform')  # nopep8
+@click.option('-p', '--platform', type=click.Choice(['openhpi', 'opensap', 'moochouse', 'openwho']), help='Platform')  # nopep8
 @click.option('-v', '--vault_name', default='', help='vault name')
 @click.pass_context
 def upload(ctx, platform, vault_name):
