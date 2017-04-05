@@ -13,7 +13,7 @@ class BotoClient(object):
             "aws_access_key_id": os.environ['aws_access_key_id'.upper()],
             "aws_secret_access_key":
                 os.environ['aws_secret_access_key'.upper()],
-            "region_name": "eu-central-1"
+            "region_name": os.environ['aws_region'.upper()]
         }
 
     def get_client(self, service_name='glacier'):
@@ -40,7 +40,7 @@ class SNS(object):
 class SQS(object):
     def __init__(self, boto_client):
         self.client = boto_client.get_client('sqs')
-        self.resource = boto3.resource('sqs', region_name='eu-central-1')
+        self.resource = boto3.resource('sqs', region_name=os.environ['aws_region'.upper()])
 
     def create_queue(self, vault_name, delay=0):
         response_create = self.client.create_queue(
@@ -155,16 +155,27 @@ class GlacierUpload(object):
 
     def upload(self, archive_id, filepath):
         if archive_id not in self.logdb:
-            try:
-                response = self.client.upload_archive(
-                    vaultName=self.vault_name,
-                    archiveDescription=archive_id,
-                    body=open(filepath)
-                )
-            except Exception as e:
-                print >> sys.stderr, "%s failed with error %s" % (
-                    archive_id, str(e))
+            for i in range(1, 10):
+                try:
+                    response = self.client.upload_archive(
+                        vaultName=self.vault_name,
+                        archiveDescription=archive_id,
+                        body=open(filepath)
+                    )
+                except self.client.exceptions.RequestTimeoutException:
+                    print >> sys.stderr, "Got RequestTimeoutException for %s after %d attempt" % (  # nopep8
+                        archive_id, i)
+                    time.sleep(1)
+                    continue
+                except Exception as e:
+                    print >> sys.stderr, "%s failed with error %s" % (
+                        archive_id, str(e))
+                    break
+                else:
+                    self.logdb[archive_id] = dict(
+                        response=response
+                    )
+                    break
             else:
-                self.logdb[archive_id] = dict(
-                    response=response
-                )
+                print >> sys.stderr, "%s failed after %d attempts" % (
+                        archive_id, i)
