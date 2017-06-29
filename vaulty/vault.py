@@ -223,8 +223,8 @@ class GlacierUpload(object):
                         archive_id, i)
 
     def upload_from_data(self, archive_id, data):
-        return self._upload(archive_id, bytes(data))
+        return self._upload(str(archive_id), bytes(data))
 
     def upload_from_file(self, archive_id, filepath):
-        return self._upload(archive_id, open(filepath))
+        return self._upload(str(archive_id), open(filepath))
         
