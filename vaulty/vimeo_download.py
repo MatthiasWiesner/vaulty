@@ -4,11 +4,10 @@ import vimeo
 
 
 class VimeoDownloader(object):
-    def __init__(self, platform, file_process_handler, logdb, tempfile):
+    def __init__(self, platform, file_process_handler, logdb):
         self.platform = platform
         self.file_process_handler = file_process_handler
         self.logdb = logdb
-        self.tempfile = tempfile if tempfile else 'tempfile_{0}.mp4'.format(platform)
 
         self.credentials = dict(
             key=os.environ[
@@ -50,10 +49,10 @@ class VimeoDownloader(object):
 
     def download_file(self, source_url, vimeo_id):
         response = requests.get(source_url, stream=True)
+        data = bytes()
 
-        with open(self.tempfile, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                data += chunk
 
-        self.file_process_handler(vimeo_id, self.tempfile)
+        self.file_process_handler(vimeo_id, data)

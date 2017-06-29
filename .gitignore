@@ -4,3 +4,4 @@ credentials.sh
 build/
 dist/
 vaulty.egg-info/
+.vscode

@@ -20,6 +20,55 @@ class BotoClient(object):
         return boto3.client(service_name, **self.credentials)
 
 
+class S3(object):
+    def __init__(self, boto_client):
+        self.client = boto_client.get_client('s3')
+
+    def get_bucket_name_list(self):
+        return [x['Name'] for x in self.client.list_buckets()['Buckets']]
+
+    def create_private_bucket(self, name):
+        response = self.client.create_bucket(
+            ACL='private',
+            Bucket=name.lower(),
+            CreateBucketConfiguration={
+                'LocationConstraint': self.client.meta.region_name
+            }
+        )
+        return response['ResponseMetadata']['HTTPStatusCode'] == 200
+
+    def get_bucket_contents(self, name):
+        paginator = self.client.get_paginator('list_objects')
+        page_iterator = paginator.paginate(Bucket=name)
+
+        contents = []
+        for page in page_iterator:
+            contents += page['Contents']
+        
+        return contents
+
+    def put_object_from_data(self, bucket, key, data):
+        response = self.client.put_object(
+            ACL='private',
+            Body=bytes(data),
+            Bucket=bucket,
+            Key=key
+        )
+        return response
+
+    def put_object_from_file(self, bucket, key, filepath):
+        response = self.client.put_object(
+            ACL='private',
+            Body=open(filepath),
+            Bucket=bucket,
+            Key=key
+        )
+        return response
+
+    def get_object(self, bucket, key):
+        return self.client.get_object(Bucket=bucket, Key=key)
+
+
 class SNS(object):
     def __init__(self, boto_client):
         self.client = boto_client.get_client('sns')
@@ -146,6 +195,24 @@ class GlacierVault(object):
             }
         )
 
+class S3Upload(object):
+    def __init__(self, boto_client, bucket, logdb):
+        self.client = S3(boto_client)
+        self.bucket = bucket
+        self.logdb = logdb
+
+    def upload(self, key, data):
+        if key not in self.logdb:
+            self.logdb[key] = dict()
+
+        if 'response' not in self.logdb[key]:
+            try:
+                response = self.client.put_object_from_data(self.bucket, key, data)
+            except Exception as response:
+                pass
+            finally:
+                self.logdb[key]['response'] = response
+
 
 class GlacierUpload(object):
     def __init__(self, boto_client, vault_name, logdb):
@@ -153,29 +220,32 @@ class GlacierUpload(object):
         self.vault_name = vault_name
         self.logdb = logdb
 
-    def upload(self, archive_id, filepath):
-        if archive_id not in self.logdb:
+    def upload(self, key, data, archive_description=None):
+        if key not in self.logdb:
+            self.logdb[key] = dict()
+
+        archive_description = archive_description or key
+
+        if 'response' not in self.logdb[key]:
             for i in range(1, 10):
                 try:
                     response = self.client.upload_archive(
                         vaultName=self.vault_name,
-                        archiveDescription=archive_id,
-                        body=open(filepath)
+                        archiveDescription=archive_description,
+                        body=data
                     )
                 except self.client.exceptions.RequestTimeoutException:
                     print >> sys.stderr, "Got RequestTimeoutException for %s after %d attempt" % (  # nopep8
-                        archive_id, i)
+                        key, i)
                     time.sleep(1)
                     continue
                 except Exception as e:
                     print >> sys.stderr, "%s failed with error %s" % (
-                        archive_id, str(e))
+                        key, str(e))
                     break
                 else:
-                    self.logdb[archive_id] = dict(
-                        response=response
-                    )
+                    self.logdb[key]['response'] = response
                     break
             else:
                 print >> sys.stderr, "%s failed after %d attempts" % (
-                        archive_id, i)
+                        key, i)
