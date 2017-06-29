@@ -33,10 +33,47 @@ def cli(ctx, base_path):
 
 
 @cli.command()
+@click.option('-b', '--bucket_name', default='', help='bucket name')
+@click.pass_context
+def backup_s3_bucket(ctx, bucket_name):
+    s3 = vault.S3(ctx.obj.boto_client)
+    bucket_list = s3.get_bucket_name_list()
+    if bucket_name not in bucket_list:
+        raise Exception('Bucket could not be found')
+
+    if 'vault_inventories' not in bucket_list:
+        s3.create_private_bucket('vault_inventories')
+
+    logdb_vault_path = '{0}_backup.db'.format(bucket_name)
+    logdb_vault = shelve.open(logdb_vault_path)
+
+    vault_name = '{0}_s3bucket_backup'
+
+    glacier_vault = vault.GlacierVault(ctx.obj.boto_client)
+    vaults_list = glacier_vault.list_vaults()
+
+    if not filter(lambda x: x['VaultName'] == vault_name, vaults_list):
+        pprint('Vault does not exist, create vault:')
+        pprint(glacier_vault.create_vault(vault_name))
+
+    glacier_upload = vault.GlacierUpload(
+        ctx.obj.boto_client, vault_name, logdb_vault)
+
+    for inventory_obj in s3.get_bucket_inventory(bucket_name)['Contents']:
+        archive_id = inventory_obj['Key']
+        bucket_obj = s3.get_object(bucket_name, archive_id)
+        glacier_upload.upload_from_data(archive_id, bucket_obj['Body'].read())
+    
+    logdb_vault.close()
+    s3.put_object_from_file('vault_inventories', logdb_vault_path, logdb_vault_path)
+    
+
+
+@cli.command()
 @click.option('-p', '--platform', type=click.Choice(['openhpi', 'opensap', 'moochouse', 'openwho']), help='Platform')  # nopep8
 @click.option('-v', '--vault_name', default='', help='vault name')
 @click.pass_context
-def upload(ctx, platform, vault_name):
+def upload_vimeo_videos(ctx, platform, vault_name):
     """
     download videos from vimeo and upload them to a glacier vault
 
@@ -71,7 +108,7 @@ def upload(ctx, platform, vault_name):
         ctx.obj.boto_client, vault_name, logdb_vault)
 
     vimeo_downloader = vimeo_download.VimeoDownloader(
-       platform, glacier_upload.upload, logdb_vimeo, temp_file)
+       platform, glacier_upload.upload_from_file, logdb_vimeo, temp_file)
     vimeo_downloader.iterate_pages(per_page=25)
 
     logdb_vimeo.close()

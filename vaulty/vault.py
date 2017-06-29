@@ -20,6 +20,48 @@ class BotoClient(object):
         return boto3.client(service_name, **self.credentials)
 
 
+class S3(object):
+    def __init__(self, boto_client):
+        self.client = boto_client.get_client('s3')
+
+    def get_bucket_name_list(self):
+        return [x['Name'] for x in self.client.list_buckets()['Buckets']]
+
+    def create_private_bucket(self, name):
+        response = self.client.create_bucket(
+            ACL='private',
+            Bucket=name.lower(),
+            CreateBucketConfiguration={
+                'LocationConstraint': self.client.meta.region_name
+            }
+        )
+        return response['ResponseMetadata']['HTTPStatusCode'] == 200
+
+    def get_bucket_inventory(self, name):
+        return self.client.list_objects(Bucket=name)
+
+    def put_object_from_data(self, bucket, key, data):
+        response = self.client.put_object(
+            ACL='private',
+            Body=bytes(data),
+            Bucket=bucket,
+            Key=key
+        )
+        return response
+
+    def put_object_from_file(self, bucket, key, filepath):
+        response = self.client.put_object(
+            ACL='private',
+            Body=open(filepath),
+            Bucket=bucket,
+            Key=key
+        )
+        return response
+
+    def get_object(self, bucket, key):
+        return self.client.get_object(Bucket=bucket, Key=key)
+
+
 class SNS(object):
     def __init__(self, boto_client):
         self.client = boto_client.get_client('sns')
@@ -153,14 +195,14 @@ class GlacierUpload(object):
         self.vault_name = vault_name
         self.logdb = logdb
 
-    def upload(self, archive_id, filepath):
+    def _upload(self, archive_id, data):
         if archive_id not in self.logdb:
             for i in range(1, 10):
                 try:
                     response = self.client.upload_archive(
                         vaultName=self.vault_name,
                         archiveDescription=archive_id,
-                        body=open(filepath)
+                        body=data
                     )
                 except self.client.exceptions.RequestTimeoutException:
                     print >> sys.stderr, "Got RequestTimeoutException for %s after %d attempt" % (  # nopep8
@@ -179,3 +221,10 @@ class GlacierUpload(object):
             else:
                 print >> sys.stderr, "%s failed after %d attempts" % (
                         archive_id, i)
+
+    def upload_from_data(self, archive_id, data):
+        return self._upload(self, archive_id, bytes(data))
+
+    def upload_from_file(self, archive_id, filepath):
+        return self._upload(self, archive_id, open(filepath))
+        
