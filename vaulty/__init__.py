@@ -41,13 +41,14 @@ def backup_s3_bucket(ctx, bucket_name):
     if bucket_name not in bucket_list:
         raise Exception('Bucket could not be found')
 
-    if 'vault_inventories' not in bucket_list:
-        s3.create_private_bucket('vault_inventories')
+    inventories_bucket_name = 'vaultinventories'
+    if inventories_bucket_name not in bucket_list:
+        s3.create_private_bucket(inventories_bucket_name)
 
     logdb_vault_path = '{0}_backup.db'.format(bucket_name)
     logdb_vault = shelve.open(logdb_vault_path)
 
-    vault_name = '{0}_s3bucket_backup'
+    vault_name = '{0}_s3bucket_backup'.format(bucket_name)
 
     glacier_vault = vault.GlacierVault(ctx.obj.boto_client)
     vaults_list = glacier_vault.list_vaults()
@@ -65,7 +66,7 @@ def backup_s3_bucket(ctx, bucket_name):
         glacier_upload.upload_from_data(archive_id, bucket_obj['Body'].read())
     
     logdb_vault.close()
-    s3.put_object_from_file('vault_inventories', logdb_vault_path, logdb_vault_path)
+    s3.put_object_from_file(inventories_bucket_name, logdb_vault_path, logdb_vault_path)
     
 
 
