@@ -9,6 +9,8 @@ from datetime import datetime
 import vault
 import vimeo_download
 
+inventories_bucket_name = 'vaultinventories'
+
 
 class Vaulty(object):
     base_path = None
@@ -41,7 +43,6 @@ def backup_s3_bucket(ctx, bucket_name):
     if bucket_name not in bucket_list:
         raise Exception('Bucket could not be found')
 
-    inventories_bucket_name = 'vaultinventories'
     if inventories_bucket_name not in bucket_list:
         s3.create_private_bucket(inventories_bucket_name)
 
@@ -68,7 +69,6 @@ def backup_s3_bucket(ctx, bucket_name):
     logdb_vault.close()
     s3.put_object_from_file(inventories_bucket_name, logdb_vault_path, logdb_vault_path)
     
-
 
 @cli.command()
 @click.option('-p', '--platform', type=click.Choice(['openhpi', 'opensap', 'moochouse', 'openwho']), help='Platform')  # nopep8
@@ -159,10 +159,27 @@ def get_job_output(ctx, vault_name, job_id):
         vault_name, job_id))
 
 
+def _delete_archives_from_logfile(boto_client, vault_name, logfile):
+    s3 = vault.S3(boto_client)
+    gv = vault.GlacierVault(boto_client)
+
+    response = s3.client.get_object(inventories_bucket_name, logfile)
+    with open(logfile, 'w') as f:
+        f.write(response['Body'].read())
+
+    logdb = shelve.open(logfile)
+    for archive_id in logdb.keys():
+        pprint(gv.delete_archive(
+            vault_name=vault_name,
+            archive_id=archive_id
+        ))
+
+
 @cli.command()
 @click.option('-v', '--vault_name', help='vault name')
+@click.option('-l', '--logfile', required=False, help='logfile on S3')
 @click.pass_context
-def delete_archives(ctx, vault_name):
+def delete_archives(ctx, vault_name, logfile=None):
     """
     delete archives from glacier vault
 
@@ -186,6 +203,10 @@ def delete_archives(ctx, vault_name):
 
     - delete Glacier vault archives
     """
+    if logfile:
+        _delete_archives_from_logfile(ctx.obj.boto_client, vault_name, logfile)
+        return
+
     sns = vault.SNS(ctx.obj.boto_client)
     sqs = vault.SQS(ctx.obj.boto_client)
     gv = vault.GlacierVault(ctx.obj.boto_client)
