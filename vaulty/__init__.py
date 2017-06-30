@@ -3,6 +3,7 @@
 import os
 import click
 import shelve
+import random
 import hashlib
 from pprint import pprint
 from datetime import datetime
@@ -60,7 +61,7 @@ def backup_s3_bucket(ctx, bucket_name):
     logdb_vault_path = '{0}_backup.db'.format(bucket_name)
     logdb_vault = shelve.open(logdb_vault_path)
 
-    vault_name = '{0}_s3bucket_backup'.format(bucket_name)
+    vault_name = '{0}_s3bucket_backup_{1}'.format(bucket_name, random.randint(10000, 99999))
 
     glacier_vault = vault.GlacierVault(ctx.obj.boto_client)
     vaults_list = glacier_vault.list_vaults()
