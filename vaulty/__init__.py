@@ -3,6 +3,7 @@
 import os
 import click
 import shelve
+import hashlib
 from pprint import pprint
 from datetime import datetime
 
@@ -37,6 +38,16 @@ def cli(ctx, base_path):
 @cli.command()
 @click.option('-b', '--bucket_name', default='', help='bucket name')
 @click.pass_context
+def test(ctx, bucket_name):
+    s3 = vault.S3(ctx.obj.boto_client)
+    contents = s3.get_bucket_inventory(bucket_name)
+    print len(contents)
+    print contents[-3:-1]
+
+
+@cli.command()
+@click.option('-b', '--bucket_name', default='', help='bucket name')
+@click.pass_context
 def backup_s3_bucket(ctx, bucket_name):
     s3 = vault.S3(ctx.obj.boto_client)
     bucket_list = s3.get_bucket_name_list()
@@ -61,14 +72,14 @@ def backup_s3_bucket(ctx, bucket_name):
     glacier_upload = vault.GlacierUpload(
         ctx.obj.boto_client, vault_name, logdb_vault)
 
-    for inventory_obj in s3.get_bucket_inventory(bucket_name)['Contents']:
-        archive_id = inventory_obj['Key']
+    for inventory_obj in s3.get_bucket_contents(bucket_name)['Contents']:
+        archive_id = hashlib.md5(inventory_obj['Key']).hexdigest()
         bucket_obj = s3.get_object(bucket_name, archive_id)
         glacier_upload.upload_from_data(archive_id, bucket_obj['Body'].read())
-    
+
     logdb_vault.close()
     s3.put_object_from_file(inventories_bucket_name, logdb_vault_path, logdb_vault_path)
-    
+
 
 @cli.command()
 @click.option('-p', '--platform', type=click.Choice(['openhpi', 'opensap', 'moochouse', 'openwho']), help='Platform')  # nopep8

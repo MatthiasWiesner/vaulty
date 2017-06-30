@@ -37,8 +37,15 @@ class S3(object):
         )
         return response['ResponseMetadata']['HTTPStatusCode'] == 200
 
-    def get_bucket_inventory(self, name):
-        return self.client.list_objects(Bucket=name)
+    def get_bucket_contents(self, name):
+        paginator = self.client.get_paginator('list_objects')
+        page_iterator = paginator.paginate(Bucket=name)
+
+        contents = []
+        for page in page_iterator:
+            contents += page['Contents']
+        
+        return contents
 
     def put_object_from_data(self, bucket, key, data):
         response = self.client.put_object(
