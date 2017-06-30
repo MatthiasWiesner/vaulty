@@ -74,8 +74,8 @@ def backup_s3_bucket(ctx, bucket_name):
         ctx.obj.boto_client, vault_name, logdb_vault)
 
     for inventory_obj in s3.get_bucket_contents(bucket_name):
+        bucket_obj = s3.get_object(bucket_name, inventory_obj['Key'])
         archive_id = hashlib.md5(inventory_obj['Key']).hexdigest()
-        bucket_obj = s3.get_object(bucket_name, archive_id)
         glacier_upload.upload_from_data(archive_id, bucket_obj['Body'].read())
 
     logdb_vault.close()
