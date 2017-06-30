@@ -163,7 +163,7 @@ def _delete_archives_from_logfile(boto_client, vault_name, logfile):
     s3 = vault.S3(boto_client)
     gv = vault.GlacierVault(boto_client)
 
-    response = s3.client.get_object(inventories_bucket_name, logfile)
+    response = s3.get_object(inventories_bucket_name, logfile)
     with open(logfile, 'w') as f:
         f.write(response['Body'].read())
 
