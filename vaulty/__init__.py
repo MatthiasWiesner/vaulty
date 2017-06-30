@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import re
 import click
 import shelve
 import random
@@ -223,7 +224,7 @@ def delete_archives(ctx, vault_name, logfile=None):
     sqs = vault.SQS(ctx.obj.boto_client)
     gv = vault.GlacierVault(ctx.obj.boto_client)
 
-    sns_topic_arn = sns.create_sns_topic(vault_name)
+    sns_topic_arn = sns.create_sns_topic()
     gv.set_sns_vault_notifications(vault_name, sns_topic_arn)
 
     sqs_queue_url, sqs_queue_arn = sqs.create_queue(vault_name, delay=0)
@@ -269,10 +270,10 @@ def get_vault_inventory(ctx, vault_name):
     sqs = vault.SQS(ctx.obj.boto_client)
     gv = vault.GlacierVault(ctx.obj.boto_client)
 
-    sns_topic_arn = sns.create_sns_topic(vault_name)
+    sns_topic_arn = sns.create_sns_topic(_clean_str(vault_name))
     gv.set_sns_vault_notifications(vault_name, sns_topic_arn)
 
-    sqs_queue_url, sqs_queue_arn = sqs.create_queue(vault_name, delay=0)
+    sqs_queue_url, sqs_queue_arn = sqs.create_queue(_clean_str(vault_name), delay=0)
     sqs.set_policy(sqs_queue_url, sqs_queue_arn)
     sns_subscription_arn = sns.subscribe(sns_topic_arn, sqs_queue_arn)
 
@@ -297,6 +298,10 @@ def get_vault_inventory(ctx, vault_name):
         db.close()
 
     sqs.receive_message(sqs_queue_url, handle_sns_notification)
+
+
+def _clean_str(s):
+    return re.sub('[^a-zA-Z0-9_-]', '_', s)
 
 
 if __name__ == '__main__':
