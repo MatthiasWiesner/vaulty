@@ -16,7 +16,7 @@ setup(
         'boto3',
         'click',
         'requests',
-        'PyVimeo==0.3.6'
+        'PyVimeo'
     ],
     entry_points='''
         [console_scripts]
