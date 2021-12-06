@@ -1,6 +1,10 @@
 import os
 import requests
 import vimeo
+import logging
+
+import logging
+logger = logging.getLogger('vaulty')
 
 
 class VimeoDownloader(object):

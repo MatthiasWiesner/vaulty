@@ -5,3 +5,6 @@ build/
 dist/
 vaulty.egg-info/
 .vscode
+test_*
+*.sqlite
+*.dat

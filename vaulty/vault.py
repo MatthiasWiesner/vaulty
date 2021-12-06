@@ -6,6 +6,8 @@ import json
 import time
 import boto3
 
+import logging
+logger = logging.getLogger('vaulty')
 
 class BotoClient(object):
     def __init__(self):
@@ -170,9 +172,10 @@ class GlacierVault(object):
         )
 
     def delete_archive(self, vault_name, archive_id):
+        logger.debug(f"Delete archive {archive_id}")
         return self.client.delete_archive(
             vaultName=vault_name,
-            archiveId=archive_id
+            archiveId=str(archive_id, 'utf-8')
         )
 
     def get_job_output(self, vault_name, job_id):
@@ -205,6 +208,8 @@ class S3Upload(object):
         if key not in self.logdb:
             self.logdb[key] = dict()
 
+        logger.debug(f"Upload to S3: {key}")
+
         if 'response' not in self.logdb[key]:
             try:
                 response = self.client.put_object_from_data(self.bucket, key, data)
@@ -224,6 +229,7 @@ class GlacierUpload(object):
         if key not in self.logdb:
             self.logdb[key] = dict()
 
+        logger.debug(f"Upload to glacier: {key}")
         archive_description = archive_description or key
 
         if 'response' not in self.logdb[key]:
@@ -235,17 +241,14 @@ class GlacierUpload(object):
                         body=data
                     )
                 except self.client.exceptions.RequestTimeoutException:
-                    print >> sys.stderr, "Got RequestTimeoutException for %s after %d attempt" % (  # nopep8
-                        key, i)
+                    logger.error(f"Got RequestTimeoutException for {key} after {i} attempt")
                     time.sleep(1)
                     continue
                 except Exception as e:
-                    print >> sys.stderr, "%s failed with error %s" % (
-                        key, str(e))
+                    logger.error(f"{key} failed with error {e}")
                     break
                 else:
                     self.logdb[key]['response'] = response
                     break
             else:
-                print >> sys.stderr, "%s failed after %d attempts" % (
-                        key, i)
+                logger.error(f"{key} failed after {i} attempts")
