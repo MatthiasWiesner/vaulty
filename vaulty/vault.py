@@ -6,8 +6,16 @@ import json
 import time
 import boto3
 
+
 import logging
 logger = logging.getLogger('vaulty')
+
+
+def str_param(param):
+    if isinstance(param, bytes):
+        return str(param, 'utf-8')
+    return param
+
 
 class BotoClient(object):
     def __init__(self):
@@ -32,7 +40,7 @@ class S3(object):
     def create_private_bucket(self, name):
         response = self.client.create_bucket(
             ACL='private',
-            Bucket=name.lower(),
+            Bucket=str_param(name).lower(),
             CreateBucketConfiguration={
                 'LocationConstraint': self.client.meta.region_name
             }
@@ -53,8 +61,8 @@ class S3(object):
         response = self.client.put_object(
             ACL='private',
             Body=bytes(data),
-            Bucket=bucket,
-            Key=key
+            Bucket=str_param(bucket),
+            Key=str_param(key)
         )
         return response
 
@@ -62,8 +70,8 @@ class S3(object):
         response = self.client.put_object(
             ACL='private',
             Body=open(filepath),
-            Bucket=bucket,
-            Key=key
+            Bucket=str_param(bucket),
+            Key=str_param(key)
         )
         return response
 
@@ -76,14 +84,14 @@ class SNS(object):
         self.client = boto_client.get_client('sns')
 
     def create_sns_topic(self, name):
-        response = self.client.create_topic(Name=name)
+        response = self.client.create_topic(Name=str_param(name))
         return response['TopicArn']
 
     def subscribe(self, sns_topic, queue_arn):
         response = self.client.subscribe(
-            TopicArn=sns_topic,
+            TopicArn=str_param(sns_topic),
             Protocol='sqs',
-            Endpoint=queue_arn
+            Endpoint=str_param(queue_arn)
         )
         return response['SubscriptionArn']
 
@@ -95,9 +103,9 @@ class SQS(object):
 
     def create_queue(self, vault_name, delay=0):
         response_create = self.client.create_queue(
-            QueueName=vault_name,
+            QueueName=str_param(vault_name),
             Attributes={
-                'DelaySeconds': '%d' % delay
+                'DelaySeconds': f'{delay:d}'
             }
         )
 
@@ -114,18 +122,18 @@ class SQS(object):
 
         policy = {
             "Version": "2008-10-17",
-            "Id": "%s/SQSDefaultPolicy" % queue_arn,
+            "Id": f"{queue_arn}/SQSDefaultPolicy",
             "Statement": [{
-                "Sid": label,
+                "Sid": str_param(label),
                 "Effect": "Allow",
-                "Principal": principal,
-                "Action": actions,
-                "Resource": queue_arn
+                "Principal": str_param(principal),
+                "Action": str_param(actions),
+                "Resource": str_param(queue_arn)
             }]
         }
 
         return self.client.set_queue_attributes(
-            QueueUrl=queue_url,
+            QueueUrl=str_param(queue_url),
             Attributes={
                 'Policy': json.dumps(policy)
             }
@@ -154,12 +162,12 @@ class GlacierVault(object):
 
     def create_vault(self, vault_name):
         return self.client.create_vault(
-            vaultName=vault_name
+            vaultName=str_param(vault_name)
         )
 
     def init_inventory_retrieval(self, vault_name):
         return self.client.initiate_job(
-            vaultName=vault_name,
+            vaultName=str_param(vault_name),
             jobParameters={
                 'Format': 'JSON',
                 'Type': 'inventory-retrieval'
@@ -168,20 +176,20 @@ class GlacierVault(object):
 
     def get_vault_jobs(self, vault_name):
         return self.client.list_jobs(
-            vaultName=vault_name
+            vaultName=str_param(vault_name)
         )
 
     def delete_archive(self, vault_name, archive_id):
         logger.debug(f"Delete archive {archive_id}")
         return self.client.delete_archive(
-            vaultName=vault_name,
-            archiveId=str(archive_id, 'utf-8')
+            vaultName=str_param(vault_name),
+            archiveId=str_param(archive_id)
         )
 
     def get_job_output(self, vault_name, job_id):
         response = self.client.get_job_output(
-            vaultName=vault_name,
-            jobId=job_id
+            vaultName=str_param(vault_name),
+            jobId=str_param(job_id)
         )
 
         return json.loads(response['body'].read())
@@ -191,9 +199,9 @@ class GlacierVault(object):
             events='ArchiveRetrievalCompleted,InventoryRetrievalCompleted'):
 
         return self.client.set_vault_notifications(
-            vaultName=vault_name,
+            vaultName=str_param(vault_name),
             vaultNotificationConfig={
-                'SNSTopic': sns_topic,
+                'SNSTopic': str_param(sns_topic),
                 'Events': events.split(',')
             }
         )
@@ -213,10 +221,9 @@ class S3Upload(object):
         if 'response' not in self.logdb[key]:
             try:
                 response = self.client.put_object_from_data(self.bucket, key, data)
-            except Exception as response:
-                pass
-            finally:
                 self.logdb[key]['response'] = response
+            except Exception as e:
+                logger.error(e)
 
 
 class GlacierUpload(object):

@@ -1,10 +1,6 @@
-credentials.sh
-/*.db
-/vaulty/*.db
-build/
-dist/
-vaulty.egg-info/
 .vscode
+**.env
+**.db
+**.sqlite
+**.dat
 test_*
-*.sqlite
-*.dat
