@@ -9,7 +9,9 @@ import sqlite3
 import random
 import hashlib
 import logging
-from datetime import datetime
+import smtplib
+from email.message import EmailMessage
+
 
 logger = logging.getLogger('vaulty')
 logger.setLevel(logging.DEBUG)
@@ -20,9 +22,26 @@ logger.addHandler(console_handler)
 import vault
 
 
+def send_email(mailing_creds, subject, text):
+    if not mailing_creds:
+        return
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = mailing_creds['sender']
+    msg['To'] = mailing_creds['receiver']
+    msg.set_content(text)
+
+    # send email
+    with smtplib.SMTP_SSL(mailing_creds['host'], mailing_creds['port']) as smtp:
+        smtp.login(mailing_creds['sender'], mailing_creds['password'])
+        smtp.send_message(msg)
+
+
 class Vaulty(object):
     base_path = None
     boto_client = None
+    mailing_creds = None
 
     def __init__(self, base_path, boto_client):
         if base_path and not os.path.exists(base_path):
@@ -33,6 +52,22 @@ class Vaulty(object):
         self.base_path = base_path if base_path else os.path.abspath(
             os.path.curdir)
         self.boto_client = boto_client
+
+        # mailing credentials
+        self.mailing_creds = None
+        mailing_creds = {
+            'host': os.getenv('SMTP_HOST'),
+            'port': os.getenv('SMTP_PORT', 465),
+            'sender': os.getenv('SMTP_SENDER'),
+            'receiver': os.getenv('SMTP_RECEIVER'),
+            'password': os.getenv('SMTP_PASSWORD')
+        }
+        # required creds
+        if mailing_creds['host'] and \
+            mailing_creds['sender'] and \
+            mailing_creds['receiver'] and \
+            mailing_creds['password']:
+            self.mailing_creds = mailing_creds
 
 
 def create_sqlite_database(logdb):
@@ -250,6 +285,13 @@ def delete_archives(ctx, vault_name, logfile=None):
     logger.info(gv.init_inventory_retrieval(vault_name))
 
     def handle_sns_notification(sns_notification):
+        send_email(ctx.obj.mailing_creds, 'Vaulty: delete_archives - start', 
+f'''
+SNS-Notification arrived!
+
+vault:  {vault_name}
+job-id: {job_id}
+''')
         job_id = sns_notification['JobId']
         job_output = gv.get_job_output(vault_name, job_id)
 
@@ -260,6 +302,15 @@ def delete_archives(ctx, vault_name, logfile=None):
                 vault_name=vault_name,
                 archive_id=archive_id
             ))
+        
+        gv.delete_vault(vault_name)
+        send_email(ctx.obj.mailing_creds, 'Vaulty: delete_archives - complete', 
+f'''
+Deletion complete!
+
+vault:  {vault_name}
+job-id: {job_id}
+''')
 
     sqs.receive_message(sqs_queue_url, handle_sns_notification)
 

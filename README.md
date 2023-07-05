@@ -24,7 +24,7 @@ Furthermore, the script can also be used to create a vault for an S3 bucket.
     - `sudo apt update`
     - `apt install git-core` and clone the repository: https://github.com/MatthiasWiesner/vaulty.git
     - python:
-      - `apt install pipenv`
+      - `pip install pipenv` (add `~/.local/bin` to you `PATH` variable)
       - change to vaulty folder and install packages:
           - `pipenv install`
 - create a `.env` file in vaulty folder with AWS credentials
@@ -34,6 +34,16 @@ export AWS_REGION=eu-central-1
 export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxxxx
 export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxx
 ```
+### Mailing
+To get informed about the long running `delete-archives` job, add to `.env`:
+```
+export SMTP_HOST=smtp.example.com
+export SMTP_PORT=465
+export SMTP_RECEIVER=receiver@exmaple.com
+export SMTP_SENDER=sender@example.com
+export SMTP_PASSWORD=xxxxxxxxxxxxxxxxxxxxxx
+```
+For smtp.gmail.com you need an extra app-password
 
 ## Usage
 
@@ -52,7 +62,7 @@ Options:
 
 Commands:
   backup-s3-bucket     download all bucket objects and upload them to a...
-  delete-archives      delete archives from glacier vault
+  delete-archives      delete archives and the vault from glacier vault
   get-job-output       get a glacier vault job's output
   get-vault-inventory  list glacier vault's archives
   get-vault-jobs       list all open glacier vault's jobs

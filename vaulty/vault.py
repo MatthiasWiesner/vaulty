@@ -165,6 +165,11 @@ class GlacierVault(object):
             vaultName=str_param(vault_name)
         )
 
+    def delete_vault(self, vault_name):
+        return self.client.delete_vault(
+            vaultName=str_param(vault_name)
+        )
+
     def init_inventory_retrieval(self, vault_name):
         return self.client.initiate_job(
             vaultName=str_param(vault_name),
