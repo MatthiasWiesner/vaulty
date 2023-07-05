@@ -14,4 +14,4 @@ PyVimeo = "*"
 pyyaml = "*"
 
 [requires]
-python_version = "3"
+python_version = "3.9"
